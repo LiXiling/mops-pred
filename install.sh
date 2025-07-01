@@ -7,5 +7,12 @@ conda activate $ENVNAME && \
 # INSTALL CONDA PACKAGES
 conda install -c conda-forge python -y && \
 
+pip install torch torchvision torchaudio
+pip install lightning
+pip install h5py
+pip install ml-colletions
+pip install wandb
+
+
 # INSTALL PIP PACKAGES
 pip install -e .
