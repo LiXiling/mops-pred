@@ -1,0 +1,16 @@
+[build-system]
+# XXX: If your project needs other packages to build properly, add them to this list.
+requires = ["setuptools >= 64"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "PROJECTNAME"
+version = "1.0.0"
+authors = [
+    {name = "Maximilian XIling Li", email="maximilian.xiling.li@gmail.com"}
+]
+readme = "README.md"
+
+
+dependencies = []
