@@ -8,9 +8,10 @@ build-backend = "setuptools.build_meta"
 name = "mops-pred"
 version = "1.0.0"
 authors = [
-    {name = "Maximilian XIling Li", email="maximilian.xiling.li@gmail.com"}
+    {name = "Maximilian Xiling Li", email="maximilian.xiling.li@gmail.com"}
 ]
 readme = "README.md"
-
-
 dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["mops_pred*", "configs*"]
