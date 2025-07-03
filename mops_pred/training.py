@@ -1,11 +1,11 @@
 import lightning as L
 import torch
-import wandb
 from absl import app, flags
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from ml_collections.config_flags import config_flags
 
+import wandb
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models import model_factory
 
@@ -34,17 +34,33 @@ def run_training(cfg, model, debug=False):
 
     train_dl, test_dl = create_dataloader(cfg)
 
-    checkpoint_callback = ModelCheckpoint(
+    print(wandb_logger.experiment.dir)
+
+    periodic_checkpoint = ModelCheckpoint(
+        dirpath=wandb_logger.experiment.dir,
+        filename="epoch-{epoch:03d}",
         every_n_epochs=20,
-        filename="{epoch:03d}",
+        save_top_k=-1,
+        auto_insert_metric_name=False,
+    )
+
+    last_checkpoint = ModelCheckpoint(
+        dirpath=wandb_logger.experiment.dir,
+        filename="last",
+        save_last=True,
+        save_top_k=0,
+        auto_insert_metric_name=False,
     )
 
     trainer = L.Trainer(
         max_epochs=cfg.training.num_epochs,
         fast_dev_run=debug,
-        callbacks=[checkpoint_callback],
+        callbacks=[periodic_checkpoint, last_checkpoint],
         logger=wandb_logger,
+        log_every_n_steps=10,
+        enable_checkpointing=True,
     )
+
     trainer.fit(
         model,
         train_dataloaders=train_dl,

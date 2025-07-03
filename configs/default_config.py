@@ -12,8 +12,8 @@ def get_default_configs():
     config.training = training = ml_collections.ConfigDict()
 
     # training.learnrate = 0.001
-    training.batch_size = 8
-    training.num_epochs = 100
+    training.batch_size = 64
+    training.num_epochs = 40
     # training.val_epochs = val_epochs = 5
     # training.checkpoint_epochs = val_epochs
 

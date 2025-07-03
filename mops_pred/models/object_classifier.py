@@ -41,6 +41,7 @@ class ObjectClassifierModel(L.LightningModule):
                 logits, y, task="multiclass", num_classes=self.num_classes
             ),
             on_epoch=True,
+            batch_size=x.shape[0],
         )
         return loss
 
@@ -51,8 +52,8 @@ class ObjectClassifierModel(L.LightningModule):
         acc = torchmetrics.functional.accuracy(
             pred, y, task="multiclass", num_classes=self.num_classes
         )
-        self.log("val/acc", acc, on_epoch=True)
+        self.log("val/acc", acc, on_epoch=True, batch_size=x.shape[0])
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=1e-3)
+        optimizer = optim.AdamW(self.parameters(), lr=1e-4)
         return optimizer
