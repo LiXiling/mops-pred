@@ -1,1 +1,1 @@
-from . import dataset_factory, object_centric
+from . import clutter, dataset_factory, object_centric
