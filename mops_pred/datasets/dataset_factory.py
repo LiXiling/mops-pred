@@ -9,7 +9,7 @@ def register_dataset(cls=None, *, name=None):
         if local_name is None:
             local_name = cls.__name__
         if local_name in _DATA_REPOSITORY:
-            raise ValueError(f"Already registered dataset with name: {local_name}")
+            return cls
         _DATA_REPOSITORY[local_name] = cls
         return cls
 

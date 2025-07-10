@@ -20,6 +20,7 @@ def register_model(cls=None, *, name=None):
 
 def create_model(model_cfg: dict):
     cls = _MODEL_REPOSITORY[model_cfg.pop("name")]
-    backbone = backbone_factory.create_backbone(model_cfg.pop("backbone"))
-
-    return cls(backbone, **model_cfg)
+    if "backbone" in model_cfg:
+        backbone = backbone_factory.create_backbone(model_cfg.pop("backbone"))
+        return cls(backbone, **model_cfg)
+    return cls(**model_cfg)

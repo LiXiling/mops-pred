@@ -77,8 +77,7 @@ class ClutterDataset(BaseH5Dataset):
 
         # Unwrap masks and add to sample, squeezing channel dim for segmentation targets
         for k, v in masks.items():
-            sample[k] = v.squeeze(0)
-
+            sample[k] = v
         return sample
 
 
@@ -91,7 +90,9 @@ if __name__ == "__main__":
     )
 
     # Test loading a sample
-    sample = dataset_semantic[0]
-    print(f"Sample keys: {sample.keys()}")
-    for k, v in sample.items():
-        print(f"{k}: {v.shape if isinstance(v, torch.Tensor) else v}")
+    for i in range(5):
+        sample = dataset_semantic[0]
+        print(f"Sample keys: {sample.keys()}")
+        for k, v in sample.items():
+            print(f"{k}: {v.shape if isinstance(v, torch.Tensor) else v}")
+            print(f"{k}: {torch.max(v) if isinstance(v, torch.Tensor) else v}")
