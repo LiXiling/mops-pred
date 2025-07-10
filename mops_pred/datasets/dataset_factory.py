@@ -32,13 +32,18 @@ def create_dataloader(
     batch_size = batch_size if batch_size is not None else cfg["training"]["batch_size"]
 
     train_loader = DataLoader(
-        cls(data_dir, train=True, augment=augment),
+        cls(
+            data_dir,
+            train=True,
+            augment=augment,
+            labels=cfg["dataset"].get("labels", None),
+        ),
         batch_size=batch_size,
         shuffle=shuffle_train,
         num_workers=8,
     )
     test_loader = DataLoader(
-        cls(test_dir, train=False),
+        cls(test_dir, train=False, labels=cfg["dataset"].get("labels", None)),
         batch_size=batch_size,
         shuffle=False,
         num_workers=8,
