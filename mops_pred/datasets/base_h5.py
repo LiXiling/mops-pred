@@ -42,7 +42,7 @@ class BaseH5Dataset(Dataset, ABC):
         if self.h5_file is None:
             self.h5_file = h5py.File(self.h5_path, "r")
 
-        actual_idx = self.indices[idx]
+        actual_idx = 0  # self.indices[idx]
         image_id = f"image_{actual_idx:06d}"
 
         return {"actual_idx": actual_idx, "image_id": image_id}

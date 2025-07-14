@@ -1,12 +1,12 @@
 import ml_collections
 
 from configs import default_config
-from configs.datasets import clutter_affordance_config
+from configs.datasets import kitchen_affordance_config
 
 
 def get_config():
     config = default_config.get_default_configs()
-    config.dataset = clutter_affordance_config.get_config()
+    config.dataset = kitchen_affordance_config.get_config()
 
     model: ml_collections.ConfigDict = config.model
     model.name = "segmentation"

@@ -47,7 +47,7 @@ class ClutterDataset(BaseH5Dataset):
 
     def __getitem__(self, idx):
         base_sample = super().__getitem__(idx)
-        actual_idx = base_sample["actual_idx"]
+        # actual_idx = base_sample["actual_idx"]
 
         # Load image and masks
         image_np = self.h5_file["images"][base_sample["image_id"]][:]
@@ -83,13 +83,14 @@ class ClutterDataset(BaseH5Dataset):
 
 if __name__ == "__main__":
     dataset_semantic = ClutterDataset(
-        h5_path="data/mops_data/mops_clutter_dataset_v2.h5",
-        train=True,
+        h5_path="data/mops_data/mops_kitchen_dataset_v3_test_new.h5",
+        train=False,
         labels=["semantic", "affordance"],
         augment=True,
     )
 
     # Test loading a sample
+    print(len(dataset_semantic))
     for i in range(5):
         sample = dataset_semantic[0]
         print(f"Sample keys: {sample.keys()}")

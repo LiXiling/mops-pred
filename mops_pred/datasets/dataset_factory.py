@@ -23,10 +23,10 @@ def create_dataloader(
     shuffle_train: bool = True,
     batch_size=None,
     augment: bool = True,
-    test_dir=None,
 ):
     cls = _DATA_REPOSITORY[cfg["dataset"]["name"]]
     data_dir = cfg["dataset"]["data_dir"]
+    test_dir = cfg["dataset"].get("test_dir", None)
     if test_dir is None:
         test_dir = data_dir
     batch_size = batch_size if batch_size is not None else cfg["training"]["batch_size"]
