@@ -54,6 +54,32 @@ class ObjectClassifierModel(L.LightningModule):
         )
         self.log("val/acc", acc, on_epoch=True, batch_size=x.shape[0])
 
+    # VIT b 16
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=1e-4)
-        return optimizer
+        # Higher weight decay for better regularization
+        optimizer = optim.AdamW(
+            self.parameters(),
+            lr=1e-4,
+            weight_decay=0.05,  # Strong weight decay for ViT
+            betas=(0.9, 0.999),
+        )
+
+        # Cosine annealing with warmup
+        total_steps = self.trainer.estimated_stepping_batches
+        warmup_steps = int(0.1 * total_steps)  # 10% warmup
+
+        scheduler = {
+            "scheduler": optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=1e-4,
+                total_steps=total_steps,
+                pct_start=0.1,  # 10% warmup
+                anneal_strategy="cos",
+                div_factor=25,  # Start from lr/25
+                final_div_factor=1000,  # End at lr/1000
+            ),
+            "interval": "step",
+            "frequency": 1,
+        }
+
+        return [optimizer], [scheduler]
