@@ -14,6 +14,7 @@ readme = "README.md"
 dependencies = [
     "h5py>=3.15.1",
     "lightning>=2.6.0",
+    "matplotlib>=3.10.7",
     "ml-collections>=1.1.0",
     "torch>=2.9.1",
     "torchaudio>=2.9.1",

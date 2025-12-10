@@ -1,9 +1,66 @@
 import lightning as L
+import torch
 import torchmetrics
 from torch import nn, optim
+from transformers import CLIPModel, CLIPProcessor
 
 from .backbones.backbone_factory import BackboneABC
 from .model_factory import register_model
+
+
+@register_model(name="clip_object_clf")
+class CLIPObjectClassifier(L.LightningModule):
+    def __init__(self, model_name: str, class_names: list[str]) -> None:
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = CLIPModel.from_pretrained(model_name)
+        self.processor = CLIPProcessor.from_pretrained(model_name)
+        self.class_names = class_names
+        self.num_classes = len(class_names)
+
+        # Pre-compute and normalize text features
+        text_inputs = self.processor(
+            text=self.class_names, return_tensors="pt", padding=True
+        )
+        text_features = self.model.get_text_features(**text_inputs)
+        self.text_features = text_features / text_features.norm(
+            p=2, dim=-1, keepdim=True
+        )
+
+    def forward(self, image):
+        # Process images and get normalized features
+        # unnnormalize ImageNet STD and mean
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(image.device)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(image.device)
+        image_tensor = image * std + mean
+        image_tensor = torch.clamp(image_tensor, 0, 1)
+
+        inputs = self.processor(images=image_tensor, return_tensors="pt", padding=True)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        image_features = self.model.get_image_features(**inputs)
+        image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+
+        # Move pre-computed text features to the correct device
+        text_features = self.text_features.to(self.device)
+
+        # Cosine similarity as logits
+        logit_scale = self.model.logit_scale.exp()
+        logits = logit_scale * image_features @ text_features.t()
+        return logits
+
+    def validation_step(self, batch, batch_idx):
+        x = batch["image"]
+        y = batch["class_label"]
+        logits = self.forward(x)
+        acc = torchmetrics.functional.accuracy(
+            logits, y, task="multiclass", num_classes=self.num_classes
+        )
+        self.log("val/acc", acc, on_epoch=True, batch_size=x.shape[0])
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x = batch["image"]
+        logits = self.forward(x)
+        return logits.argmax(dim=-1)
 
 
 @register_model(name="object_clf")
