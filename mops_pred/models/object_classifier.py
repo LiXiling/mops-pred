@@ -23,9 +23,8 @@ class CLIPObjectClassifier(L.LightningModule):
             text=self.class_names, return_tensors="pt", padding=True
         )
         text_features = self.model.get_text_features(**text_inputs)
-        self.text_features = text_features / text_features.norm(
-            p=2, dim=-1, keepdim=True
-        )
+        text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+        self.register_buffer("text_features", text_features.detach())
 
     def forward(self, image):
         # Process images and get normalized features
@@ -35,7 +34,11 @@ class CLIPObjectClassifier(L.LightningModule):
         image_tensor = image * std + mean
         image_tensor = torch.clamp(image_tensor, 0, 1)
 
-        inputs = self.processor(images=image_tensor, return_tensors="pt", padding=True)
+        print(image.device, image_tensor.device, self.device)
+
+        inputs = self.processor(
+            images=image_tensor, return_tensors="pt", padding=True, do_rescale=False
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         image_features = self.model.get_image_features(**inputs)
         image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
@@ -61,6 +64,53 @@ class CLIPObjectClassifier(L.LightningModule):
         x = batch["image"]
         logits = self.forward(x)
         return logits.argmax(dim=-1)
+
+    def training_step(self, batch, batch_idx):
+        x = batch["image"]
+        y = batch["class_label"]
+
+        logits = self.forward(x)
+        loss = nn.functional.cross_entropy(logits, y)
+        self.log("train/loss", loss, on_step=True, prog_bar=True)
+        self.log(
+            "train/acc",
+            torchmetrics.functional.accuracy(
+                logits, y, task="multiclass", num_classes=self.num_classes
+            ),
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=x.shape[0],
+        )
+        return loss
+
+    def configure_optimizers(self):
+        # Higher weight decay for better regularization
+        optimizer = optim.AdamW(
+            self.parameters(),
+            lr=1e-5,  # Lower learning rate for fine-tuning
+            weight_decay=0.05,
+            betas=(0.9, 0.999),
+        )
+
+        # Cosine annealing with warmup
+        total_steps = self.trainer.estimated_stepping_batches
+        warmup_steps = int(0.1 * total_steps)  # 10% warmup
+
+        scheduler = {
+            "scheduler": optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=1e-5,
+                total_steps=total_steps,
+                pct_start=0.1,  # 10% warmup
+                anneal_strategy="cos",
+                div_factor=25,
+                final_div_factor=1000,
+            ),
+            "interval": "step",
+            "frequency": 1,
+        }
+
+        return [optimizer], [scheduler]
 
 
 @register_model(name="object_clf")
