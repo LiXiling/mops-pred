@@ -10,16 +10,13 @@
 > This is an alpha release for [MOPS](https://intuitive-robots.github.io/mops/) model prediction.
 
 ## 🚀 Quick Start
+
+We use [uv](https://docs.astral.sh/uv/) for managing the virtual environment.
+Install via
 ```bash
-# Create and activate conda environment
-conda create --name mops python
-conda activate mops-pred
-
-pip install torch torchvision torchaudio
-pip install lightning torchmetrics
-pip install h5py
-pip install ml-colletions
-pip install wandb
-
+uv sync
+```
+or 
+```bash
 pip install -e .
 ```
