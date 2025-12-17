@@ -6,6 +6,7 @@ from torch import nn, optim
 from transformers import AutoModel
 
 from .model_factory import register_model
+from .segm_transformer import MaskedMultilabelJaccardIndex
 
 
 class DINOv3SegmentationHead(nn.Module):
@@ -40,6 +41,7 @@ class DINOv3SegmentationModel(L.LightningModule):
         model_name: str = "facebook/dinov3-vitb16-pretrain-lvd1689m",
         freeze_backbone: bool = False,
         hidden_dim: int = 256,
+        partnet_iou: bool = False,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -121,6 +123,9 @@ class DINOv3SegmentationModel(L.LightningModule):
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
 
+        if self.hparams.partnet_iou and self.hparams.multilabel:
+            self.val_partnet_iou = MaskedMultilabelJaccardIndex(num_labels=num_classes)
+
     def extract_features(self, x: torch.Tensor) -> torch.Tensor:
         """Extract patch-grid features from the DINOv3 ViT backbone.
 
@@ -188,13 +193,22 @@ class DINOv3SegmentationModel(L.LightningModule):
             prog_bar=True,
         )
         self.log_dict(metrics, on_step=False, on_epoch=True)
-        return loss
+        return loss, logits
 
     def training_step(self, batch, batch_idx):
-        return self._common_step(batch, batch_idx, "train")
+        loss, _ = self._common_step(batch, batch_idx, "train")
+        return loss
 
     def validation_step(self, batch, batch_idx):
-        return self._common_step(batch, batch_idx, "val")
+        loss, logits = self._common_step(batch, batch_idx, "val")
+        if self.hparams.partnet_iou and "is_partnet" in batch:
+            self.val_partnet_iou.update(
+                logits, batch[self.hparams.task].int(), batch["is_partnet"]
+            )
+            self.log(
+                "val/partnet_iou", self.val_partnet_iou, on_step=False, on_epoch=True
+            )
+        return loss
 
     def configure_optimizers(self):
         params = [p for p in self.parameters() if p.requires_grad]

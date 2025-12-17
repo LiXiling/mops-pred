@@ -68,8 +68,8 @@ def _get_dataloaders():
             "dataset": {
                 "name": "clutter",
                 "alias": "kitchen_affordance",
-                "data_dir": "data/mops_data/mops_kitchen_dataset_v3_train.h5",
-                "test_dir": "data/mops_data/mops_kitchen_dataset_v3_test_new.h5",
+                "data_dir": "data/mops_data/mops_clutter_dataset_v2.h5",
+                # "test_dir": "data/mops_data/mops_kitchen_dataset_v3_test_new.h5",
                 "labels": [TASK],
             }
         },

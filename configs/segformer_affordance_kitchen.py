@@ -13,9 +13,10 @@ def get_config():
     model.num_classes = config.dataset.num_classes
     model.task = config.dataset.labels[0]
     model.multilabel = True
+    model.partnet_iou = True
 
     training: ml_collections.ConfigDict = config.training
     training.batch_size = 16
-    training.num_epochs = 200
+    training.num_epochs = 5
 
     return config

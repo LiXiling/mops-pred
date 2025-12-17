@@ -8,6 +8,32 @@ from transformers import SegformerForSemanticSegmentation
 from .model_factory import register_model
 
 
+class MaskedMultilabelJaccardIndex(torchmetrics.Metric):
+    """Multilabel Jaccard Index (IoU) computed only on masked pixels."""
+
+    def __init__(self, num_labels: int, **kwargs):
+        super().__init__(**kwargs)
+        self.num_labels = num_labels
+        self.add_state(
+            "intersection", default=torch.zeros(num_labels), dist_reduce_fx="sum"
+        )
+        self.add_state("union", default=torch.zeros(num_labels), dist_reduce_fx="sum")
+
+    def update(self, preds: torch.Tensor, target: torch.Tensor, mask: torch.Tensor):
+        # preds: logits (B, C, H, W), target: (B, C, H, W), mask: (B, 1, H, W) or (B, H, W)
+        preds_binary = torch.sigmoid(preds) > 0.5
+        target_bool = target.bool()
+        if mask.ndim == 3:
+            mask = mask.unsqueeze(1)
+        mask = mask.bool().expand_as(preds_binary)
+        self.intersection += (preds_binary & target_bool & mask).sum(dim=(0, 2, 3))
+        self.union += ((preds_binary | target_bool) & mask).sum(dim=(0, 2, 3))
+
+    def compute(self):
+        iou_per_class = self.intersection / self.union.clamp(min=1)
+        return iou_per_class.mean()
+
+
 class FocalLoss(nn.Module):
     """Focal Loss for multi-label classification."""
 
@@ -42,6 +68,7 @@ class TransformerSegmentationModel(L.LightningModule):
         lr: float = 1e-4,
         multilabel: bool = False,
         loss: str = "bce",  # Add loss hyperparameter
+        partnet_iou: bool = False,
     ) -> None:
         """
         Initializes a SegFormer model for semantic or multilabel segmentation.
@@ -92,6 +119,9 @@ class TransformerSegmentationModel(L.LightningModule):
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
 
+        if self.hparams.partnet_iou and self.hparams.multilabel:
+            self.val_partnet_iou = MaskedMultilabelJaccardIndex(num_labels=num_classes)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns raw logits from the model, upsampled to the input size."""
         # Get the raw logits from the SegFormer model
@@ -127,13 +157,22 @@ class TransformerSegmentationModel(L.LightningModule):
             prog_bar=True,
         )
         self.log_dict(metrics, on_step=False, on_epoch=True)
-        return loss
+        return loss, logits
 
     def training_step(self, batch, batch_idx):
-        return self._common_step(batch, batch_idx, "train")
+        loss, _ = self._common_step(batch, batch_idx, "train")
+        return loss
 
     def validation_step(self, batch, batch_idx):
-        return self._common_step(batch, batch_idx, "val")
+        loss, logits = self._common_step(batch, batch_idx, "val")
+        if self.hparams.partnet_iou and "is_partnet" in batch:
+            self.val_partnet_iou.update(
+                logits, batch[self.hparams.task].int(), batch["is_partnet"]
+            )
+            self.log(
+                "val/partnet_iou", self.val_partnet_iou, on_step=False, on_epoch=True
+            )
+        return loss
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)

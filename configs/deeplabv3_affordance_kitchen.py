@@ -16,6 +16,6 @@ def get_config():
 
     training: ml_collections.ConfigDict = config.training
     training.batch_size = 16
-    training.num_epochs = 200
+    training.num_epochs = 5
 
     return config

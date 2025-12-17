@@ -64,6 +64,15 @@ class ClutterDataset(BaseH5Dataset):
             else:  # Assumes H, W, C
                 masks[label_type] = torch.from_numpy(mask_data).permute(2, 0, 1)
 
+        # Load is_partnet metadata mask if available
+        if "is_partnet" in self.h5_file["masks"]:
+            pn = self.h5_file["masks"]["is_partnet"][base_sample["image_id"]][:]
+            masks["is_partnet"] = (
+                torch.from_numpy(pn).unsqueeze(0)
+                if pn.ndim == 2
+                else torch.from_numpy(pn).permute(2, 0, 1)
+            )
+
         # Wrap tensors for synchronized transformations
         image = tv_tensors.Image(image)
         masks = {k: tv_tensors.Mask(v, dtype=v.dtype) for k, v in masks.items()}

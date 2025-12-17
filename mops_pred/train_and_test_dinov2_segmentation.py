@@ -51,7 +51,9 @@ def visualize_segmentation(images, predictions, targets, num_samples=4):
         axs[i, 2].axis("off")
 
     plt.tight_layout()
-    plt.savefig("dinov2_finetuned_segmentation_results.png", dpi=150, bbox_inches="tight")
+    plt.savefig(
+        "dinov2_finetuned_segmentation_results.png", dpi=150, bbox_inches="tight"
+    )
     plt.show()
     print("Visualization saved to dinov2_finetuned_segmentation_results.png")
 
@@ -86,7 +88,7 @@ def train_and_test_dinov2_segmentation():
         augment=True,  # Enable augmentation for training
     )
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"DINOv2 Segmentation Fine-tuning")
     print(f"Model: {MODEL_NAME}")
     print(f"Task: {TASK}")
@@ -95,7 +97,7 @@ def train_and_test_dinov2_segmentation():
     print(f"Epochs: {NUM_EPOCHS}")
     print(f"Batch Size: {BATCH_SIZE}")
     print(f"Learning Rate: {LEARNING_RATE}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Checkpoint to save the best model
     checkpoint_callback = ModelCheckpoint(
