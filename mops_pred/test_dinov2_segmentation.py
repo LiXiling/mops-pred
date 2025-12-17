@@ -6,16 +6,22 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.dinov2_segmentation import DINOv2SegmentationModel
+from mops_pred.models.dinov3_segmentation import DINOv3SegmentationModel
 
-# Configuration for zero-shot testing
-MODEL_NAME = "dinov2_vitb14"  # Options: dinov2_vits14, dinov2_vitb14, dinov2_vitl14, dinov2_vitg14
+# Shared configuration for zero-shot testing
 BATCH_SIZE = 16
 NUM_CLASSES = 56  # Semantic segmentation classes for clutter dataset
-TASK = "affordance"  # or "affordance"
+TASK = "affordance"
 MULTILABEL = True  # True for affordance, False for semantic
 
+# Model identifiers
+DINOV2_MODEL_NAME = "dinov2_vitb14"
+DINOV3_MODEL_NAME = "facebook/dinov3-vitb16-pretrain-lvd1689m"
 
-def visualize_segmentation(images, predictions, targets, num_samples=4):
+
+def visualize_segmentation(
+    images, predictions, targets, num_samples: int = 4, output_path: str | None = None
+):
     """Visualize segmentation predictions."""
     num_samples = min(num_samples, len(images))
     fig, axs = plt.subplots(num_samples, 3, figsize=(15, 5 * num_samples))
@@ -49,32 +55,15 @@ def visualize_segmentation(images, predictions, targets, num_samples=4):
         axs[i, 2].axis("off")
 
     plt.tight_layout()
-    plt.savefig(
-        "dinov2_zeroshot_segmentation_results.png", dpi=150, bbox_inches="tight"
-    )
+    outfile = output_path or "dinov2_zeroshot_segmentation_results.png"
+    plt.savefig(outfile, dpi=150, bbox_inches="tight")
     plt.show()
-    print("Visualization saved to dinov2_zeroshot_segmentation_results.png")
+    print(f"Visualization saved to {outfile}")
 
 
-def test_dinov2_segmentation_zeroshot():
-    """
-    Tests DINOv2 segmentation in zero-shot mode (frozen backbone + linear head).
-    """
-    torch.set_float32_matmul_precision("medium")
-    L.seed_everything(42)
-
-    # Initialize model with frozen backbone (zero-shot mode)
-    model = DINOv2SegmentationModel(
-        num_classes=NUM_CLASSES,
-        task=TASK,
-        model_name=MODEL_NAME,
-        freeze_backbone=True,  # Freeze for zero-shot
-        lr=1e-3,  # Higher LR for training just the head
-        multilabel=MULTILABEL,
-    )
-
-    # Create dataloaders
-    train_dl, test_dl = create_dataloader(
+def _get_dataloaders():
+    """Build train/test dataloaders for the kitchen affordance dataset."""
+    return create_dataloader(
         {
             "dataset": {
                 "name": "clutter",
@@ -88,25 +77,35 @@ def test_dinov2_segmentation_zeroshot():
         augment=False,
     )
 
+
+def _run_zero_shot(model_cls, model_kwargs, experiment_tag: str):
+    """Shared zero-shot workflow for DINO variants."""
+    torch.set_float32_matmul_precision("medium")
+    L.seed_everything(42)
+
+    tag_for_files = experiment_tag.replace("/", "-")
+
+    # Initialize model and data
+    model = model_cls(**model_kwargs)
+    train_dl, test_dl = _get_dataloaders()
+
     print(f"\n{'=' * 60}")
-    print("DINOv2 Zero-Shot Segmentation Testing")
-    print(f"Model: {MODEL_NAME}")
+    print(f"Zero-Shot Segmentation Testing :: {tag_for_files}")
     print(f"Task: {TASK}")
     print(f"Num Classes: {NUM_CLASSES}")
-    print("Backbone: FROZEN (zero-shot mode)")
+    print("Backbone: FROZEN (linear probing)")
     print(f"{'=' * 60}\n")
 
-    # Quick training of just the segmentation head (linear probing)
     checkpoint_callback = ModelCheckpoint(
         monitor="val/iou",
         dirpath="checkpoints",
-        filename=f"dinov2-{MODEL_NAME}-zeroshot-{TASK}-best",
+        filename=f"{tag_for_files}-best",
         save_top_k=1,
         mode="max",
     )
 
     trainer = L.Trainer(
-        max_epochs=20,  # Quick training for zero-shot
+        max_epochs=20,
         logger=True,
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
@@ -116,19 +115,25 @@ def test_dinov2_segmentation_zeroshot():
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=test_dl)
     print("Linear probing complete.")
 
-    # Load best model and validate
+    # Load best checkpoint
     print("\nLoading best model and running final validation...")
-    best_model = DINOv2SegmentationModel.load_from_checkpoint(
-        checkpoint_callback.best_model_path
+    best_path = (
+        checkpoint_callback.best_model_path or checkpoint_callback.last_model_path
     )
+    if best_path is None:
+        raise RuntimeError("No checkpoint was saved during training.")
+
+    best_model = model_cls.load_from_checkpoint(best_path)
     trainer.validate(best_model, dataloaders=test_dl)
     print("Final validation complete.")
 
     # Visualize predictions
     print("\nGenerating prediction visualizations...")
     best_model.eval()
+    device = getattr(trainer.strategy, "root_device", best_model.device)
+    best_model.to(device)
     for batch in test_dl:
-        batch = {k: v.to(best_model.device) for k, v in batch.items()}
+        batch = {k: v.to(device) for k, v in batch.items()}
         with torch.no_grad():
             predictions = best_model.predict_step(batch, 0)["predictions"]
 
@@ -137,12 +142,45 @@ def test_dinov2_segmentation_zeroshot():
             predictions,
             batch[TASK],
             num_samples=min(4, len(batch["image"])),
+            output_path=f"{tag_for_files}_results.png",
         )
         break
 
     print("\nZero-shot testing complete!")
-    print(f"Best model saved to: {checkpoint_callback.best_model_path}")
+    print(f"Best model saved to: {best_path}")
+
+
+def test_dinov2_segmentation_zeroshot():
+    """DINOv2 frozen backbone + linear segmentation head."""
+    _run_zero_shot(
+        DINOv2SegmentationModel,
+        {
+            "num_classes": NUM_CLASSES,
+            "task": TASK,
+            "model_name": DINOV2_MODEL_NAME,
+            "freeze_backbone": True,
+            "lr": 1e-3,
+            "multilabel": MULTILABEL,
+        },
+        experiment_tag=f"dinov2-{DINOV2_MODEL_NAME}-zeroshot-{TASK}",
+    )
+
+
+def test_dinov3_segmentation_zeroshot():
+    """DINOv3 frozen backbone + linear segmentation head."""
+    _run_zero_shot(
+        DINOv3SegmentationModel,
+        {
+            "num_classes": NUM_CLASSES,
+            "task": TASK,
+            "model_name": DINOV3_MODEL_NAME,
+            "freeze_backbone": True,
+            "lr": 1e-3,
+            "multilabel": MULTILABEL,
+        },
+        experiment_tag=f"dinov3-{DINOV3_MODEL_NAME}-zeroshot-{TASK}",
+    )
 
 
 if __name__ == "__main__":
-    test_dinov2_segmentation_zeroshot()
+    test_dinov3_segmentation_zeroshot()
