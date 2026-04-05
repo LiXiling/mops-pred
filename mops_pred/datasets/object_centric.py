@@ -60,18 +60,3 @@ class ObjectCentricDataset(BaseH5Dataset):
             sample["class_label"] = torch.tensor(class_idx, dtype=torch.long)
 
         return sample
-
-
-if __name__ == "__main__":
-    dataset_classification = ObjectCentricDataset(
-        h5_path="data/mops_data/mops_single_dataset_v2.h5",
-        train=True,
-        labels=["class"],
-        augment=True,
-    )
-
-    # Test loading a sample
-    sample = dataset_classification[0]
-    print(f"Sample keys: {sample.keys()}")
-    for k, v in sample.items():
-        print(f"{k}: {v.shape if isinstance(v, torch.Tensor) else v}")

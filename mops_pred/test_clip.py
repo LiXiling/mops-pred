@@ -6,7 +6,7 @@ from mops_pred.models.object_classifier import CLIPObjectClassifier
 
 # Hardcoded constants for testing
 MODEL_NAME = "openai/clip-vit-base-patch32"
-CLASS_NAMES = clip_prompts = [
+CLASS_NAMES = [
     "a rendering of a coffee machine",
     "a rendering of a switch",
     "a rendering of a USB thumb drive",
@@ -97,7 +97,7 @@ def test_clip_classifier():
     print("\nStarting CLIP classifier prediction on a single batch...")
     for batch in test_dl:
         predictions = model.predict_step(batch, 0)
-        # use matpltolib to show images with predicted labels
+        # use matplotlib to show images with predicted labels
         import matplotlib.pyplot as plt
         import torchvision.transforms.functional as TF
 
@@ -118,10 +118,3 @@ def test_clip_classifier():
 
 if __name__ == "__main__":
     test_clip_classifier()
-    # import h5py
-
-    # with h5py.File("data/mops_data/mops_single_dataset_big_v2.h5", "r") as f:
-    #     print(f.keys())
-    #     print(f["labels"].keys())
-    #     print([c for c in f["labels"]["class_names"][:]])
-    #     print(f["labels"]["class_labels"][:])

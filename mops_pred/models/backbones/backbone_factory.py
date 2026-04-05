@@ -25,6 +25,13 @@ def create_backbone(name: str):
 
 
 class BackboneABC(nn.Module):
+    """Base class for sequential backbones.
+
+    Applies ``weights.transforms()`` then runs ``modules`` as a sequential
+    pipeline. Subclasses must pass the pretrained weights object, a list of
+    modules, and the output spatial dimensions.
+    """
+
     def __init__(
         self, weights, modules, channels: int, width: int, height: int
     ) -> None:
@@ -42,6 +49,12 @@ class BackboneABC(nn.Module):
 
 
 class BackboneNonSeqABC(nn.Module):
+    """Base class for non-sequential backbones (e.g. ViT).
+
+    Like ``BackboneABC`` but stores ``modules`` as a single unit rather than
+    wrapping it in ``nn.Sequential``.
+    """
+
     def __init__(
         self, weights, modules, channels: int, width: int, height: int
     ) -> None:

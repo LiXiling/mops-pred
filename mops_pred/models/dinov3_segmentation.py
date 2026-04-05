@@ -83,12 +83,6 @@ class DINOv3SegmentationModel(L.LightningModule):
             self.backbone.config, "num_register_tokens", 0
         )
 
-        print(
-            f"[DINOv3SegmentationModel] Loaded with native image size: "
-            f"{self.image_size_h}×{self.image_size_w}, patch_size: {self.patch_size}, "
-            f"feature_dim: {self.feature_dim}, register_tokens: {self.num_register_tokens}"
-        )
-
         if freeze_backbone:
             self.backbone.eval()
             for param in self.backbone.parameters():

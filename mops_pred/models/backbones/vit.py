@@ -30,7 +30,7 @@ class Tokenize(torch.nn.Module):
 
 
 @register_backbone(name="vit")
-class ViTBackBone(BackboneNonSeqABC):
+class ViTBackbone(BackboneNonSeqABC):
     def __init__(self) -> None:
         weights = torchvision.models.ViT_B_16_Weights.DEFAULT
         vit_backbone = torchvision.models.vit_b_16(weights=weights)

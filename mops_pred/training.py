@@ -23,6 +23,15 @@ flags.DEFINE_string("checkpoint", None, "Checkpoint Path")
 
 
 def run_training(cfg, model, debug=False):
+    """Run the training loop with W&B logging and periodic checkpointing.
+
+    Args:
+        cfg: ml_collections ConfigDict with ``wandb``, ``training``, and
+            ``dataset`` sub-configs.
+        model: Instantiated Lightning model to train.
+        debug: When True, runs a single fast_dev_run batch without uploading
+            to W&B (``offline=True``).
+    """
     torch.set_float32_matmul_precision("medium")
     L.seed_everything(cfg.seed)
 

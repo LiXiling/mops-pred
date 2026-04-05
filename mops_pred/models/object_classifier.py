@@ -10,6 +10,17 @@ from .model_factory import register_model
 
 @register_model(name="clip_object_clf")
 class CLIPObjectClassifier(L.LightningModule):
+    """Zero-shot or fine-tuned CLIP image classifier.
+
+    Computes cosine similarity between image features and pre-computed text
+    features derived from ``class_names`` prompts.
+
+    Args:
+        model_name: HuggingFace identifier for the CLIP model
+            (e.g. ``"openai/clip-vit-base-patch32"``).
+        class_names: List of text prompts, one per class.
+    """
+
     def __init__(self, model_name: str, class_names: list[str]) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -27,14 +38,11 @@ class CLIPObjectClassifier(L.LightningModule):
         self.register_buffer("text_features", text_features.detach())
 
     def forward(self, image):
-        # Process images and get normalized features
-        # unnnormalize ImageNet STD and mean
+        # Unnormalize ImageNet mean and std before passing to CLIP processor
         mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(image.device)
         std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(image.device)
         image_tensor = image * std + mean
         image_tensor = torch.clamp(image_tensor, 0, 1)
-
-        print(image.device, image_tensor.device, self.device)
 
         inputs = self.processor(
             images=image_tensor, return_tensors="pt", padding=True, do_rescale=False
@@ -92,16 +100,13 @@ class CLIPObjectClassifier(L.LightningModule):
             betas=(0.9, 0.999),
         )
 
-        # Cosine annealing with warmup
         total_steps = self.trainer.estimated_stepping_batches
-        warmup_steps = int(0.1 * total_steps)  # 10% warmup
-
         scheduler = {
             "scheduler": optim.lr_scheduler.OneCycleLR(
                 optimizer,
                 max_lr=1e-5,
                 total_steps=total_steps,
-                pct_start=0.1,  # 10% warmup
+                pct_start=0.1,
                 anneal_strategy="cos",
                 div_factor=25,
                 final_div_factor=1000,
@@ -115,6 +120,13 @@ class CLIPObjectClassifier(L.LightningModule):
 
 @register_model(name="object_clf")
 class ObjectClassifierModel(L.LightningModule):
+    """Backbone + linear head image classifier.
+
+    Args:
+        backbone: A ``BackboneABC`` instance that produces spatial feature maps.
+        num_classes: Number of output classes.
+    """
+
     def __init__(
         self,
         backbone: BackboneABC,
@@ -161,20 +173,15 @@ class ObjectClassifierModel(L.LightningModule):
         )
         self.log("val/acc", acc, on_epoch=True, batch_size=x.shape[0])
 
-    # VIT b 16
     def configure_optimizers(self):
-        # Higher weight decay for better regularization
         optimizer = optim.AdamW(
             self.parameters(),
             lr=1e-4,
-            weight_decay=0.05,  # Strong weight decay for ViT
+            weight_decay=0.05,
             betas=(0.9, 0.999),
         )
 
-        # Cosine annealing with warmup
         total_steps = self.trainer.estimated_stepping_batches
-        warmup_steps = int(0.1 * total_steps)  # 10% warmup
-
         scheduler = {
             "scheduler": optim.lr_scheduler.OneCycleLR(
                 optimizer,

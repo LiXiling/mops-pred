@@ -19,6 +19,20 @@ def register_model(cls=None, *, name=None):
 
 
 def create_model(model_cfg: dict):
+    """Instantiate a registered model from a config dict.
+
+    The ``"name"`` key selects the model class; remaining keys are forwarded
+    as constructor arguments. If a ``"backbone"`` key is present it is
+    instantiated first via ``backbone_factory.create_backbone`` and injected
+    as the first positional argument.
+
+    Args:
+        model_cfg: Mutable dict with at least a ``"name"`` key. The ``"name"``
+            and ``"backbone"`` entries are consumed (popped) during construction.
+
+    Returns:
+        An instance of the requested model.
+    """
     cls = _MODEL_REPOSITORY[model_cfg.pop("name")]
     if "backbone" in model_cfg:
         backbone = backbone_factory.create_backbone(model_cfg.pop("backbone"))

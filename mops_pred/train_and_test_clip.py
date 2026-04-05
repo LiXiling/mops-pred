@@ -94,8 +94,6 @@ def train_and_test_clip_classifier():
 
     # Initialize the Trainer
     trainer = L.Trainer(
-        # accelerator="auto",
-        # devices=1,
         max_epochs=NUM_EPOCHS,
         logger=True,  # Enable default logging
         callbacks=[checkpoint_callback],
@@ -120,7 +118,7 @@ def train_and_test_clip_classifier():
         batch = {k: v.to(best_model.device) for k, v in batch.items()}
         predictions = best_model.predict_step(batch, 0)
 
-        # use matpltolib to show images with predicted labels
+        # use matplotlib to show images with predicted labels
         import matplotlib.pyplot as plt
         import torchvision.transforms.functional as TF
 

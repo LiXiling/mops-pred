@@ -8,30 +8,7 @@ from torchvision.models.segmentation import (
 )
 
 from .model_factory import register_model
-
-
-class FocalLoss(nn.Module):
-    """Focal Loss for multi-label classification."""
-
-    def __init__(self, alpha=0.25, gamma=2.0, reduction="mean"):
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-        self.bce_with_logits = nn.BCEWithLogitsLoss(reduction="none")
-
-    def forward(self, inputs, targets):
-        bce_loss = self.bce_with_logits(inputs, targets)
-        p = torch.sigmoid(inputs)
-        pt = p * targets + (1 - p) * (1 - targets)
-        focal_weight = self.alpha * (1 - pt).pow(self.gamma)
-        loss = focal_weight * bce_loss
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        return loss
+from .segm_transformer import FocalLoss
 
 
 @register_model(name="segmentation")

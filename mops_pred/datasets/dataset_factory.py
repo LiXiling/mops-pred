@@ -24,6 +24,21 @@ def create_dataloader(
     batch_size=None,
     augment: bool = True,
 ):
+    """Create train and test DataLoaders from a config dict.
+
+    Args:
+        cfg: Config dict with ``dataset`` and (optionally) ``training`` keys.
+            ``cfg["dataset"]["name"]`` must match a registered dataset name.
+            ``cfg["dataset"]["data_dir"]`` is the path to the training HDF5 file.
+            ``cfg["dataset"]["test_dir"]`` is the test HDF5 path (defaults to ``data_dir``).
+            ``cfg["dataset"]["labels"]`` optionally specifies which label types to load.
+        shuffle_train: Whether to shuffle the training DataLoader.
+        batch_size: Overrides ``cfg["training"]["batch_size"]`` when provided.
+        augment: Whether to apply data augmentation to the training split.
+
+    Returns:
+        Tuple of ``(train_loader, test_loader)``.
+    """
     cls = _DATA_REPOSITORY[cfg["dataset"]["name"]]
     data_dir = cfg["dataset"]["data_dir"]
     test_dir = cfg["dataset"].get("test_dir", None)
