@@ -1,0 +1,17 @@
+dataset:
+  name: clutter
+  data_dir: data/mops_data/mops_kitchen_dataset_100k_v2.h5
+  test_dir: data/mops_data/mops_kitchen_dataset_100k_v2_test.h5
+  num_classes: 56
+  labels: [affordance]
+
+model:
+  name: segformer
+  num_classes: 56
+  task: affordance
+  multilabel: true
+  partnet_iou: true
+
+training:
+  batch_size: 16
+  num_epochs: 5

@@ -2,6 +2,7 @@ import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 
+from mops_pred.config import DatasetConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.object_classifier import CLIPObjectClassifier
 
@@ -73,14 +74,12 @@ def train_and_test_clip_classifier():
 
     # Create dataloaders
     train_dl, test_dl = create_dataloader(
-        {
-            "dataset": {
-                "name": "object_centric",
-                "data_dir": "data/mops_data/mops_single_dataset_big_v2.h5",
-            }
-        },
+        DatasetConfig(
+            name="object_centric",
+            data_dir="data/mops_data/mops_single_dataset_big_v2.h5",
+        ),
         batch_size=BATCH_SIZE,
-        augment=True,  # Enable augmentation for training
+        augment=True,
     )
 
     # Checkpoint to save the best model based on validation accuracy

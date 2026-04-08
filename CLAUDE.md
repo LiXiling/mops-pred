@@ -9,18 +9,15 @@ Uses [uv](https://docs.astral.sh/uv/) for environment management:
 uv sync
 ```
 
-Or with pip:
-```bash
-pip install -e .
-```
+The venv is installed at `.venv/`
 
 ## Running Experiments
 
 ### Config-based training (DeepLabV3 / SegFormer models)
 ```bash
-python -m mops_pred.training --config configs/deeplabv3_affordance_kitchen.py --mode train
-python -m mops_pred.training --config configs/deeplabv3_affordance_kitchen.py --mode debug  # fast_dev_run, no wandb upload
-python -m mops_pred.training --config configs/deeplabv3_affordance_kitchen.py --mode train --checkpoint path/to/ckpt.pt
+python -m mops_pred.training --config_path configs/deeplabv3_affordance_kitchen.yaml --mode train
+python -m mops_pred.training --config_path configs/deeplabv3_affordance_kitchen.yaml --mode debug  # fast_dev_run, no wandb upload
+python -m mops_pred.training --config_path configs/deeplabv3_affordance_kitchen.yaml --checkpoint path/to/ckpt.pt
 ```
 
 ### DINOv2 fine-tuning (standalone script)
@@ -52,7 +49,7 @@ Models, backbones, and datasets all use decorator-based registries:
 New components must be registered before `create_model` / `create_dataloader` can instantiate them by name.
 
 ### Config system
-Configs use `ml_collections.ConfigDict` (Google's config library). Each config file under `configs/` exports `get_config()`. The main training entrypoint (`mops_pred/training.py`) reads the config via `--config` flag using `ml_collections.config_flags`. Config hierarchy: `default_config.py` → experiment-specific config (e.g., `deeplabv3_affordance_kitchen.py`) → dataset config (under `configs/datasets/`).
+Configs use `draccus` with Python dataclasses (`mops_pred/config.py`) and YAML config files under `configs/`. The main training entrypoint (`mops_pred/training.py`) uses `@draccus.wrap()` for CLI parsing. Pass `--config_path configs/<experiment>.yaml` to select a config, and override any field from the CLI (e.g., `--training.batch_size 32`).
 
 ### Models
 All models are `lightning.LightningModule` subclasses. Two styles:

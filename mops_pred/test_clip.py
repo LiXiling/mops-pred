@@ -1,6 +1,7 @@
 import lightning as L
 import torch
 
+from mops_pred.config import DatasetConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.object_classifier import CLIPObjectClassifier
 
@@ -70,12 +71,10 @@ def test_clip_classifier():
     model = CLIPObjectClassifier(model_name=MODEL_NAME, class_names=CLASS_NAMES)
 
     train_dl, test_dl = create_dataloader(
-        {
-            "dataset": {
-                "name": "object_centric",
-                "data_dir": "data/mops_data/mops_single_dataset_big_v2.h5",
-            }
-        },
+        DatasetConfig(
+            name="object_centric",
+            data_dir="data/mops_data/mops_single_dataset_big_v2.h5",
+        ),
         batch_size=BATCH_SIZE,
         augment=False,
     )

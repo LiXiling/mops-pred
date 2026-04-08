@@ -1,47 +1,29 @@
+import dataclasses
+
+import draccus
 import lightning as L
 import torch
-from absl import app, flags
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-from ml_collections.config_flags import config_flags
 
 import wandb
+from mops_pred.config import ExperimentConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models import model_factory
 
-FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file(
-    "config",
-    "./configs/resnet50_config.py",
-    "Experiment Configuration",
-)
-flags.DEFINE_enum(
-    "mode", "train", ["train", "debug", "test"], "Running mode: train or debug"
-)
 
-flags.DEFINE_string("checkpoint", None, "Checkpoint Path")
-
-
-def run_training(cfg, model, debug=False):
-    """Run the training loop with W&B logging and periodic checkpointing.
-
-    Args:
-        cfg: ml_collections ConfigDict with ``wandb``, ``training``, and
-            ``dataset`` sub-configs.
-        model: Instantiated Lightning model to train.
-        debug: When True, runs a single fast_dev_run batch without uploading
-            to W&B (``offline=True``).
-    """
+def run_training(cfg: ExperimentConfig, model, debug=False):
+    """Run the training loop with W&B logging and periodic checkpointing."""
     torch.set_float32_matmul_precision("medium")
     L.seed_everything(cfg.seed)
 
     wandb_logger = WandbLogger(
         project=cfg.wandb.project,
         offline=debug,
-        config=cfg.to_dict(),
+        config=dataclasses.asdict(cfg),
     )
 
-    train_dl, test_dl = create_dataloader(cfg)
+    train_dl, test_dl = create_dataloader(cfg.dataset, batch_size=cfg.training.batch_size)
 
     print(wandb_logger.experiment.dir)
 
@@ -77,20 +59,20 @@ def run_training(cfg, model, debug=False):
     )
 
 
-def main(argv):
-    cfg = FLAGS.config
-    debug = FLAGS.mode == "debug"
+@draccus.wrap()
+def main(cfg: ExperimentConfig):
+    debug = cfg.mode == "debug"
 
     torch.manual_seed(cfg.seed)
-    model = model_factory.create_model(cfg.to_dict()["model"])
+    model = model_factory.create_model(cfg.model)
     model.cuda()
 
-    if FLAGS.checkpoint is not None:
-        model.load_state_dict(torch.load(FLAGS.checkpoint)["model_state_dict"])
+    if cfg.checkpoint is not None:
+        model.load_state_dict(torch.load(cfg.checkpoint)["model_state_dict"])
 
     run_training(cfg, model, debug=debug)
     wandb.finish()
 
 
 if __name__ == "__main__":
-    app.run(main)
+    main()

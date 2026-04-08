@@ -1,0 +1,11 @@
+dataset:
+  name: clutter
+  data_dir: data/mops_data/mops_clutter_dataset_v2.h5
+  num_classes: 139
+
+model:
+  name: segmentation
+  num_classes: 139
+
+training:
+  batch_size: 16

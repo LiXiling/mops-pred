@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from torch.utils.data import DataLoader
+
+from mops_pred.config import DatasetConfig
 
 _DATA_REPOSITORY = {}
 
@@ -19,46 +23,39 @@ def register_dataset(cls=None, *, name=None):
 
 
 def create_dataloader(
-    cfg,
+    dataset_cfg: DatasetConfig,
+    batch_size: int = 64,
     shuffle_train: bool = True,
-    batch_size=None,
     augment: bool = True,
 ):
-    """Create train and test DataLoaders from a config dict.
+    """Create train and test DataLoaders from a DatasetConfig.
 
     Args:
-        cfg: Config dict with ``dataset`` and (optionally) ``training`` keys.
-            ``cfg["dataset"]["name"]`` must match a registered dataset name.
-            ``cfg["dataset"]["data_dir"]`` is the path to the training HDF5 file.
-            ``cfg["dataset"]["test_dir"]`` is the test HDF5 path (defaults to ``data_dir``).
-            ``cfg["dataset"]["labels"]`` optionally specifies which label types to load.
+        dataset_cfg: Dataset configuration specifying name, paths, and labels.
+        batch_size: Batch size for both loaders.
         shuffle_train: Whether to shuffle the training DataLoader.
-        batch_size: Overrides ``cfg["training"]["batch_size"]`` when provided.
         augment: Whether to apply data augmentation to the training split.
 
     Returns:
         Tuple of ``(train_loader, test_loader)``.
     """
-    cls = _DATA_REPOSITORY[cfg["dataset"]["name"]]
-    data_dir = cfg["dataset"]["data_dir"]
-    test_dir = cfg["dataset"].get("test_dir", None)
-    if test_dir is None:
-        test_dir = data_dir
-    batch_size = batch_size if batch_size is not None else cfg["training"]["batch_size"]
+    cls = _DATA_REPOSITORY[dataset_cfg.name]
+    data_dir = dataset_cfg.data_dir
+    test_dir = dataset_cfg.test_dir or data_dir
 
     train_loader = DataLoader(
         cls(
             data_dir,
             train=True,
             augment=augment,
-            labels=cfg["dataset"].get("labels", None),
+            labels=dataset_cfg.labels,
         ),
         batch_size=batch_size,
         shuffle=shuffle_train,
         num_workers=8,
     )
     test_loader = DataLoader(
-        cls(test_dir, train=False, labels=cfg["dataset"].get("labels", None)),
+        cls(test_dir, train=False, labels=dataset_cfg.labels),
         batch_size=batch_size,
         shuffle=False,
         num_workers=8,

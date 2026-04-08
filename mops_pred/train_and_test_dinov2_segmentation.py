@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from lightning.pytorch.callbacks import ModelCheckpoint
 
+from mops_pred.config import DatasetConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.dinov2_segmentation import DINOv2SegmentationModel
 
@@ -77,15 +78,13 @@ def train_and_test_dinov2_segmentation():
 
     # Create dataloaders
     train_dl, test_dl = create_dataloader(
-        {
-            "dataset": {
-                "name": "clutter",
-                "data_dir": "data/mops_data/mops_clutter_dataset_v2.h5",
-                "labels": [TASK],
-            }
-        },
+        DatasetConfig(
+            name="clutter",
+            data_dir="data/mops_data/mops_clutter_dataset_v2.h5",
+            labels=[TASK],
+        ),
         batch_size=BATCH_SIZE,
-        augment=True,  # Enable augmentation for training
+        augment=True,
     )
 
     print(f"\n{'=' * 60}")

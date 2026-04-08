@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 
+from mops_pred.config import DatasetConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.dinov2_segmentation import DINOv2SegmentationModel
 from mops_pred.models.dinov3_segmentation import DINOv3SegmentationModel
@@ -64,15 +65,12 @@ def visualize_segmentation(
 def _get_dataloaders():
     """Build train/test dataloaders for the kitchen affordance dataset."""
     return create_dataloader(
-        {
-            "dataset": {
-                "name": "clutter",
-                "alias": "kitchen_affordance",
-                "data_dir": "data/mops_data/mops_clutter_dataset_v2.h5",
-                # "test_dir": "data/mops_data/mops_kitchen_dataset_v3_test_new.h5",
-                "labels": [TASK],
-            }
-        },
+        DatasetConfig(
+            name="clutter",
+            alias="kitchen_affordance",
+            data_dir="data/mops_data/mops_clutter_dataset_v2.h5",
+            labels=[TASK],
+        ),
         batch_size=BATCH_SIZE,
         augment=False,
     )

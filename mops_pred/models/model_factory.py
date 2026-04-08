@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import dataclasses
+
+from mops_pred.config import ModelConfig
+
 from .backbones import backbone_factory
 
 _MODEL_REPOSITORY = {}
@@ -18,23 +24,22 @@ def register_model(cls=None, *, name=None):
     return _register(cls)
 
 
-def create_model(model_cfg: dict):
-    """Instantiate a registered model from a config dict.
+def create_model(model_cfg: ModelConfig):
+    """Instantiate a registered model from a ModelConfig.
 
-    The ``"name"`` key selects the model class; remaining keys are forwarded
-    as constructor arguments. If a ``"backbone"`` key is present it is
-    instantiated first via ``backbone_factory.create_backbone`` and injected
-    as the first positional argument.
-
-    Args:
-        model_cfg: Mutable dict with at least a ``"name"`` key. The ``"name"``
-            and ``"backbone"`` entries are consumed (popped) during construction.
-
-    Returns:
-        An instance of the requested model.
+    The ``name`` field selects the model class; remaining non-None fields are
+    forwarded as constructor arguments.  If ``backbone`` is set it is
+    instantiated first via ``backbone_factory`` and injected as the first
+    positional argument.
     """
-    cls = _MODEL_REPOSITORY[model_cfg.pop("name")]
-    if "backbone" in model_cfg:
-        backbone = backbone_factory.create_backbone(model_cfg.pop("backbone"))
-        return cls(backbone, **model_cfg)
-    return cls(**model_cfg)
+    kwargs = {
+        k: v
+        for k, v in dataclasses.asdict(model_cfg).items()
+        if k not in ("name", "backbone") and v is not None
+    }
+
+    cls = _MODEL_REPOSITORY[model_cfg.name]
+    if model_cfg.backbone is not None:
+        backbone = backbone_factory.create_backbone(model_cfg.backbone)
+        return cls(backbone, **kwargs)
+    return cls(**kwargs)
