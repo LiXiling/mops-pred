@@ -1,15 +1,16 @@
 dataset:
   name: clutter
-  data_dir: data/mops_data/mops_kitchen_dataset_100k.h5
+  data_dir: data/mops_data/mops_kitchen_dataset_5k.h5
   num_classes: 56
   labels: [affordance]
 
 model:
-  name: segmentation
+  name: segformer
   num_classes: 56
   task: affordance
   multilabel: true
+  partnet_iou: true
 
 training:
   batch_size: 16
-  num_epochs: 5
+  num_epochs: 150

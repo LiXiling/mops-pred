@@ -118,10 +118,16 @@ class WebDatasetDataset(IterableDataset):
             if key not in sample or name not in self._labels:
                 continue
             arr = np.load(io.BytesIO(sample[key]))["data"]
+            # Affordance masks are binary (0/1) — keep as uint8 to match
+            # the H5 loader and avoid blowing up GPU memory with float64.
+            # Continuous arrays (depth, normal) stay float32.
+            if name == "affordance":
+                arr = arr.astype(np.uint8)
+            else:
+                arr = arr.astype(np.float32)
             t = torch.from_numpy(arr)
             masks[name] = tv_tensors.Mask(
                 t.permute(2, 0, 1) if t.ndim == 3 else t.unsqueeze(0),
-                dtype=t.dtype,
             )
 
         # --- Spatial + colour transforms ---

@@ -1,23 +1,23 @@
+import argparse
+
 import lightning as L
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import wandb
+import yaml
 from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import WandbLogger
 
 from mops_pred.config import DatasetConfig
 from mops_pred.datasets.dataset_factory import create_dataloader
 from mops_pred.models.dinov2_segmentation import DINOv2SegmentationModel
 from mops_pred.models.dinov3_segmentation import DINOv3SegmentationModel
 
-# Shared configuration for zero-shot testing
-BATCH_SIZE = 16
-NUM_CLASSES = 56  # Semantic segmentation classes for clutter dataset
-TASK = "affordance"
-MULTILABEL = True  # True for affordance, False for semantic
-
-# Model identifiers
-DINOV2_MODEL_NAME = "dinov2_vitb14"
-DINOV3_MODEL_NAME = "facebook/dinov3-vitb16-pretrain-lvd1689m"
+MODEL_CLASSES = {
+    "dinov2_segmentation": DINOv2SegmentationModel,
+    "dinov3_segmentation": DINOv3SegmentationModel,
+}
 
 
 def visualize_segmentation(
@@ -62,49 +62,62 @@ def visualize_segmentation(
     print(f"Visualization saved to {outfile}")
 
 
-def _get_dataloaders():
-    """Build train/test dataloaders for the kitchen affordance dataset."""
+def _get_dataloaders(cfg: dict):
+    dataset_cfg = cfg["dataset"]
     return create_dataloader(
         DatasetConfig(
-            name="clutter",
-            alias="kitchen_affordance",
-            data_dir="data/mops_data/mops_clutter_dataset_5k.h5",
-            labels=[TASK],
+            name=dataset_cfg["name"],
+            data_dir=dataset_cfg["data_dir"],
+            labels=dataset_cfg["labels"],
         ),
-        batch_size=BATCH_SIZE,
+        batch_size=cfg["training"]["batch_size"],
         augment=False,
     )
 
 
-def _run_zero_shot(model_cls, model_kwargs, experiment_tag: str):
-    """Shared zero-shot workflow for DINO variants."""
+def run_experiment(cfg: dict):
     torch.set_float32_matmul_precision("medium")
     L.seed_everything(42)
 
-    tag_for_files = experiment_tag.replace("/", "-")
+    model_cfg = cfg["model"]
+    training_cfg = cfg["training"]
+    task = model_cfg["task"]
+    model_cls = MODEL_CLASSES[model_cfg["name"]]
+    model_name_tag = model_cfg["model_name"].replace("/", "-")
+    experiment_tag = f"{model_cfg['name']}-{model_name_tag}-zeroshot-{task}"
 
-    # Initialize model and data
-    model = model_cls(**model_kwargs)
-    train_dl, test_dl = _get_dataloaders()
+    model = model_cls(
+        num_classes=model_cfg["num_classes"],
+        task=task,
+        model_name=model_cfg["model_name"],
+        freeze_backbone=model_cfg.get("freeze_backbone", True),
+        lr=model_cfg.get("lr", 1e-3),
+        multilabel=model_cfg.get("multilabel", False),
+        hidden_dim=model_cfg.get("hidden_dim", 256),
+    )
+    train_dl, test_dl = _get_dataloaders(cfg)
 
     print(f"\n{'=' * 60}")
-    print(f"Zero-Shot Segmentation Testing :: {tag_for_files}")
-    print(f"Task: {TASK}")
-    print(f"Num Classes: {NUM_CLASSES}")
+    print(f"Zero-Shot Segmentation Testing :: {experiment_tag}")
+    print(f"Task: {task}")
+    print(f"Num Classes: {model_cfg['num_classes']}")
     print("Backbone: FROZEN (linear probing)")
     print(f"{'=' * 60}\n")
 
+    wandb_project = cfg.get("wandb", {}).get("project", "mops-pred-2026")
+    wandb_logger = WandbLogger(project=wandb_project, config=cfg, name=experiment_tag)
+
     checkpoint_callback = ModelCheckpoint(
         monitor="val/iou",
-        dirpath="checkpoints",
-        filename=f"{tag_for_files}-best",
+        dirpath=wandb_logger.experiment.dir,
+        filename="best",
         save_top_k=1,
         mode="max",
     )
 
     trainer = L.Trainer(
-        max_epochs=20,
-        logger=True,
+        max_epochs=training_cfg["num_epochs"],
+        logger=wandb_logger,
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
     )
@@ -113,11 +126,8 @@ def _run_zero_shot(model_cls, model_kwargs, experiment_tag: str):
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=test_dl)
     print("Linear probing complete.")
 
-    # Load best checkpoint
     print("\nLoading best model and running final validation...")
-    best_path = (
-        checkpoint_callback.best_model_path or checkpoint_callback.last_model_path
-    )
+    best_path = checkpoint_callback.best_model_path or checkpoint_callback.last_model_path
     if best_path is None:
         raise RuntimeError("No checkpoint was saved during training.")
 
@@ -125,7 +135,6 @@ def _run_zero_shot(model_cls, model_kwargs, experiment_tag: str):
     trainer.validate(best_model, dataloaders=test_dl)
     print("Final validation complete.")
 
-    # Visualize predictions
     print("\nGenerating prediction visualizations...")
     best_model.eval()
     device = getattr(trainer.strategy, "root_device", best_model.device)
@@ -138,47 +147,27 @@ def _run_zero_shot(model_cls, model_kwargs, experiment_tag: str):
         visualize_segmentation(
             batch["image"],
             predictions,
-            batch[TASK],
+            batch[task],
             num_samples=min(4, len(batch["image"])),
-            output_path=f"{tag_for_files}_results.png",
+            output_path=f"{experiment_tag}_results.png",
         )
         break
 
     print("\nZero-shot testing complete!")
     print(f"Best model saved to: {best_path}")
+    wandb.finish()
 
 
-def test_dinov2_segmentation_zeroshot():
-    """DINOv2 frozen backbone + linear segmentation head."""
-    _run_zero_shot(
-        DINOv2SegmentationModel,
-        {
-            "num_classes": NUM_CLASSES,
-            "task": TASK,
-            "model_name": DINOV2_MODEL_NAME,
-            "freeze_backbone": True,
-            "lr": 1e-3,
-            "multilabel": MULTILABEL,
-        },
-        experiment_tag=f"dinov2-{DINOV2_MODEL_NAME}-zeroshot-{TASK}",
-    )
+def main():
+    parser = argparse.ArgumentParser(description="DINO zero-shot segmentation")
+    parser.add_argument("--config_path", required=True, help="Path to YAML config file")
+    args = parser.parse_args()
 
+    with open(args.config_path) as f:
+        cfg = yaml.safe_load(f)
 
-def test_dinov3_segmentation_zeroshot():
-    """DINOv3 frozen backbone + linear segmentation head."""
-    _run_zero_shot(
-        DINOv3SegmentationModel,
-        {
-            "num_classes": NUM_CLASSES,
-            "task": TASK,
-            "model_name": DINOV3_MODEL_NAME,
-            "freeze_backbone": True,
-            "lr": 1e-3,
-            "multilabel": MULTILABEL,
-        },
-        experiment_tag=f"dinov3-{DINOV3_MODEL_NAME}-zeroshot-{TASK}",
-    )
+    run_experiment(cfg)
 
 
 if __name__ == "__main__":
-    test_dinov3_segmentation_zeroshot()
+    main()

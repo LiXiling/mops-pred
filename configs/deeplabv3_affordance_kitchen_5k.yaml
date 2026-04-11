@@ -1,6 +1,6 @@
 dataset:
   name: clutter
-  data_dir: data/mops_data/mops_kitchen_dataset_100k.h5
+  data_dir: data/mops_data/mops_kitchen_dataset_5k_wds
   num_classes: 56
   labels: [affordance]
 
@@ -12,4 +12,6 @@ model:
 
 training:
   batch_size: 16
-  num_epochs: 5
+  num_epochs: 100
+
+seed: 42

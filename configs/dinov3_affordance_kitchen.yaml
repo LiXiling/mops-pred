@@ -5,10 +5,14 @@ dataset:
   labels: [affordance]
 
 model:
-  name: segmentation
+  name: dinov3_segmentation
+  model_name: facebook/dinov3-vitb16-pretrain-lvd1689m
   num_classes: 56
   task: affordance
   multilabel: true
+  freeze_backbone: true
+  lr: 0.001
+  hidden_dim: 256
 
 training:
   batch_size: 16
