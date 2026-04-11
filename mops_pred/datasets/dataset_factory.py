@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 
 from mops_pred.config import DatasetConfig
 
@@ -43,19 +43,25 @@ def create_dataloader(
     data_dir = dataset_cfg.data_dir
     test_dir = dataset_cfg.test_dir or data_dir
 
+    train_ds = cls(
+        data_dir,
+        train=True,
+        augment=augment,
+        labels=dataset_cfg.labels,
+    )
+    test_ds = cls(test_dir, train=False, labels=dataset_cfg.labels)
+
+    # IterableDataset (e.g. WebDataset) handles shuffling internally.
+    is_iterable = isinstance(train_ds, IterableDataset)
+
     train_loader = DataLoader(
-        cls(
-            data_dir,
-            train=True,
-            augment=augment,
-            labels=dataset_cfg.labels,
-        ),
+        train_ds,
         batch_size=batch_size,
-        shuffle=shuffle_train,
+        shuffle=shuffle_train and not is_iterable,
         num_workers=8,
     )
     test_loader = DataLoader(
-        cls(test_dir, train=False, labels=dataset_cfg.labels),
+        test_ds,
         batch_size=batch_size,
         shuffle=False,
         num_workers=8,

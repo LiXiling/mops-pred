@@ -30,9 +30,8 @@ python -m mops_pred.train_and_test_dinov2_segmentation
 python -m mops_pred.test_dinov2_segmentation
 ```
 
-### Linting
+### Formatting
 ```bash
-ruff check .
 ruff format .
 ```
 
