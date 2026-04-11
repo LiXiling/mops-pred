@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from torch.utils.data import DataLoader, IterableDataset
 
 from mops_pred.config import DatasetConfig
@@ -22,6 +24,10 @@ def register_dataset(cls=None, *, name=None):
     return _register(cls)
 
 
+def _is_h5(path: str) -> bool:
+    return path.endswith((".h5", ".hdf5"))
+
+
 def create_dataloader(
     dataset_cfg: DatasetConfig,
     batch_size: int = 64,
@@ -29,6 +35,10 @@ def create_dataloader(
     augment: bool = True,
 ):
     """Create train and test DataLoaders from a DatasetConfig.
+
+    Format is auto-detected from ``data_dir``:
+      * **directory** → WebDataset (reads ``train/`` and ``test/`` TAR shards)
+      * **.h5 / .hdf5 file** → legacy HDF5 reader selected by ``dataset_cfg.name``
 
     Args:
         dataset_cfg: Dataset configuration specifying name, paths, and labels.
@@ -39,19 +49,26 @@ def create_dataloader(
     Returns:
         Tuple of ``(train_loader, test_loader)``.
     """
-    cls = _DATA_REPOSITORY[dataset_cfg.name]
     data_dir = dataset_cfg.data_dir
     test_dir = dataset_cfg.test_dir or data_dir
 
-    train_ds = cls(
-        data_dir,
-        train=True,
-        augment=augment,
-        labels=dataset_cfg.labels,
-    )
-    test_ds = cls(test_dir, train=False, labels=dataset_cfg.labels)
+    if _is_h5(data_dir):
+        # Legacy HDF5 path — use registered dataset class.
+        cls = _DATA_REPOSITORY[dataset_cfg.name]
+        train_ds = cls(data_dir, train=True, augment=augment, labels=dataset_cfg.labels)
+        test_ds = cls(test_dir, train=False, labels=dataset_cfg.labels)
+    else:
+        # Default: directory → WebDataset shards.
+        from mops_pred.datasets.webdataset import WebDatasetDataset
 
-    # IterableDataset (e.g. WebDataset) handles shuffling internally.
+        train_ds = WebDatasetDataset(
+            data_dir, train=True, augment=augment, labels=dataset_cfg.labels
+        )
+        test_ds = WebDatasetDataset(
+            test_dir, train=False, labels=dataset_cfg.labels
+        )
+
+    # IterableDataset (WebDataset) handles shuffling internally.
     is_iterable = isinstance(train_ds, IterableDataset)
 
     train_loader = DataLoader(

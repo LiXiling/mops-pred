@@ -68,7 +68,7 @@ def _get_dataloaders():
         DatasetConfig(
             name="clutter",
             alias="kitchen_affordance",
-            data_dir="data/mops_data/mops_clutter_dataset_v2.h5",
+            data_dir="data/mops_data/mops_clutter_dataset_5k.h5",
             labels=[TASK],
         ),
         batch_size=BATCH_SIZE,

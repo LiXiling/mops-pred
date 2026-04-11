@@ -19,15 +19,12 @@ from torch.utils.data import IterableDataset
 from torchvision import tv_tensors
 from torchvision.transforms.functional import to_tensor
 
-from mops_pred.datasets.dataset_factory import register_dataset
-
 # Mask keys stored as lossless PNG in the TAR shards.
 _PNG_MASKS = ("semantic", "instance", "part", "is_partnet")
 # Array keys stored as compressed .npz.
 _NPZ_ARRAYS = ("affordance", "depth", "normal")
 
 
-@register_dataset(name="webdataset")
 class WebDatasetDataset(IterableDataset):
     """Reads sharded TAR archives (WebDataset format) and yields samples
     matching the dict schema of ``ClutterDataset``.
@@ -56,6 +53,15 @@ class WebDatasetDataset(IterableDataset):
 
         self._train = train
         self._labels = set(labels) if labels else {"semantic"}
+
+        # Read dataset length from dataset_info.json so Lightning can
+        # compute estimated_stepping_batches for LR schedulers.
+        info_path = Path(data_dir) / "dataset_info.json"
+        if info_path.exists():
+            info = json.loads(info_path.read_text())
+            self._length = info["splits"][split]["num_images"]
+        else:
+            self._length = None
 
         # --- transforms (identical to ClutterDataset) ---
         if augment:
@@ -135,14 +141,17 @@ class WebDatasetDataset(IterableDataset):
 
         return result
 
-    # ------------------------------------------------------------------
-    # Iteration
-    # ------------------------------------------------------------------
+    def __len__(self):
+        if self._length is None:
+            raise TypeError(
+                "Dataset length unknown — provide dataset_info.json in the data root."
+            )
+        return self._length
 
     def __iter__(self):
         # Build the pipeline fresh so each DataLoader worker gets its own
         # shard split (wds handles this via get_worker_info internally).
-        pipeline = wds.WebDataset(self._urls, shardshuffle=self._train)
+        pipeline = wds.WebDataset(self._urls, shardshuffle=1000 if self._train else 0)
         if self._train:
             pipeline = pipeline.shuffle(1000)
         pipeline = pipeline.map(self._decode)
