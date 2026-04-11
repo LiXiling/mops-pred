@@ -8,13 +8,13 @@ from typing import Optional
 
 @dataclass
 class WandbConfig:
-    project: str = "mops-pred"
+    project: str = "mops-pred-2026"
 
 
 @dataclass
 class DatasetConfig:
     name: str = "object_centric"
-    data_dir: str = "data/mops_data/mops_single_dataset_big_v2.h5"
+    data_dir: str = "data/mops_data/mops_object_dataset"
     test_dir: Optional[str] = None
     num_classes: int = 46
     labels: Optional[list[str]] = None
