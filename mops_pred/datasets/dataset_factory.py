@@ -28,6 +28,12 @@ def _is_h5(path: str) -> bool:
     return path.endswith((".h5", ".hdf5"))
 
 
+def _is_parquet(data_dir: str) -> bool:
+    """Return True if *data_dir* contains Parquet shards (train/*.parquet)."""
+    train_dir = Path(data_dir) / "train"
+    return train_dir.is_dir() and any(train_dir.glob("*.parquet"))
+
+
 def create_dataloader(
     dataset_cfg: DatasetConfig,
     batch_size: int = 64,
@@ -37,8 +43,9 @@ def create_dataloader(
     """Create train and test DataLoaders from a DatasetConfig.
 
     Format is auto-detected from ``data_dir``:
-      * **directory** → WebDataset (reads ``train/`` and ``test/`` TAR shards)
       * **.h5 / .hdf5 file** → legacy HDF5 reader selected by ``dataset_cfg.name``
+      * **directory with .parquet shards** → Parquet reader (HF-native)
+      * **directory with .tar shards** → WebDataset reader
 
     Args:
         dataset_cfg: Dataset configuration specifying name, paths, and labels.
@@ -57,6 +64,16 @@ def create_dataloader(
         cls = _DATA_REPOSITORY[dataset_cfg.name]
         train_ds = cls(data_dir, train=True, augment=augment, labels=dataset_cfg.labels)
         test_ds = cls(test_dir, train=False, labels=dataset_cfg.labels)
+    elif _is_parquet(data_dir):
+        # Parquet shards (HF-native format).
+        from mops_pred.datasets.parquet_dataset import ParquetDataset
+
+        train_ds = ParquetDataset(
+            data_dir, train=True, augment=augment, labels=dataset_cfg.labels
+        )
+        test_ds = ParquetDataset(
+            test_dir, train=False, labels=dataset_cfg.labels
+        )
     else:
         # Default: directory → WebDataset shards.
         from mops_pred.datasets.webdataset import WebDatasetDataset
