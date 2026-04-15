@@ -3,7 +3,7 @@ wandb:
 
 dataset:
   name: clutter
-  data_dir: data/mops_data/mops_clutter_dataset_5k.h5
+  data_dir: data/mops_data/mops_clutter_5k
   num_classes: 56
   labels: [affordance]
 

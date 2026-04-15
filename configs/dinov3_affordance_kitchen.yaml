@@ -1,6 +1,6 @@
 dataset:
   name: clutter
-  data_dir: data/mops_data/mops_kitchen_dataset_100k.h5
+  data_dir: data/mops_data/mops_kitchen_100k
   num_classes: 56
   labels: [affordance]
 

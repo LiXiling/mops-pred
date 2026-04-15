@@ -1,6 +1,6 @@
 dataset:
   name: object_centric
-  data_dir: data/mops_data/mops_object_dataset
+  data_dir: data/mops_data/mops_object
   num_classes: 46
 
 model:
